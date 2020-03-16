@@ -14,7 +14,7 @@ storage server needs boost 1.66+
  7 files changed, 7 insertions(+), 36 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 0c62c49..1691be4 100644
+index ab8e756..9346ba5 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -19,6 +19,7 @@ if (INTEGRATION_TEST)
@@ -42,7 +42,7 @@ index 014d61e..12c830e 100644
  set_property(TARGET common PROPERTY CXX_STANDARD 14)
  
 diff --git a/crypto/CMakeLists.txt b/crypto/CMakeLists.txt
-index bc8d4e2..a4e7667 100644
+index 397aa51..572076f 100644
 --- a/crypto/CMakeLists.txt
 +++ b/crypto/CMakeLists.txt
 @@ -38,9 +38,7 @@ find_library(LOKI_EPEE epee PATHS /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/loki-co
@@ -57,11 +57,11 @@ index bc8d4e2..a4e7667 100644
  target_include_directories(crypto PRIVATE ${Boost_INCLUDE_DIRS})
  target_link_libraries(crypto PRIVATE ${Boost_LIBRARIES})
 diff --git a/httpserver/CMakeLists.txt b/httpserver/CMakeLists.txt
-index 659a0fc..a06cdb7 100644
+index ec7a177..8d404c9 100644
 --- a/httpserver/CMakeLists.txt
 +++ b/httpserver/CMakeLists.txt
-@@ -45,13 +45,7 @@ loki_add_subdirectory(../pow pow)
- loki_add_subdirectory(../crypto crypto)
+@@ -50,13 +50,7 @@ loki_add_subdirectory(../crypto crypto)
+ loki_add_subdirectory(../vendors/loki-mq loki-mq)
  find_package(OpenSSL REQUIRED)
  
 -find_package(Boost
