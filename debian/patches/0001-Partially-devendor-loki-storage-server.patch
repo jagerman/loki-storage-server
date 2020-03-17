@@ -105,7 +105,7 @@ index 4efee3e..d2ccf3b 100644
  
  #include <sodium/crypto_generichash.h>
 diff --git a/httpserver/CMakeLists.txt b/httpserver/CMakeLists.txt
-index 1db6713..ec7a177 100644
+index 78a1ce8..c50f9ff 100644
 --- a/httpserver/CMakeLists.txt
 +++ b/httpserver/CMakeLists.txt
 @@ -81,16 +81,9 @@ set_property(TARGET httpserver PROPERTY CXX_STANDARD 14)

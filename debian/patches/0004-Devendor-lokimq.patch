@@ -3,51 +3,30 @@ Date: Mon, 16 Mar 2020 01:31:30 -0300
 Subject: Devendor lokimq
 
 ---
- CMakeLists.txt              | 3 ---
- httpserver/CMakeLists.txt   | 8 +++++---
- httpserver/lmq_server.cpp   | 2 +-
- httpserver/service_node.cpp | 2 +-
- 4 files changed, 7 insertions(+), 8 deletions(-)
+ httpserver/CMakeLists.txt | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9346ba5..0f73d56 100644
---- a/CMakeLists.txt
-+++ b/CMakeLists.txt
-@@ -30,9 +30,6 @@ set(sodium_USE_STATIC_LIBS ON)
- find_package(sodium REQUIRED)
- include_directories(${sodium_INCLUDE_DIR})
- 
--include_directories("${CMAKE_CURRENT_LIST_DIR}/vendors/loki-mq/cppzmq")
--include_directories("${CMAKE_CURRENT_LIST_DIR}/vendors/loki-mq/mapbox-variant/include")
--
- loki_add_subdirectory(common)
- loki_add_subdirectory(utils)
- loki_add_subdirectory(crypto)
 diff --git a/httpserver/CMakeLists.txt b/httpserver/CMakeLists.txt
-index 8d404c9..8ae0899 100644
+index 62679af..8ae0899 100644
 --- a/httpserver/CMakeLists.txt
 +++ b/httpserver/CMakeLists.txt
-@@ -47,7 +47,6 @@ loki_add_subdirectory(../storage storage)
+@@ -47,8 +47,6 @@ loki_add_subdirectory(../storage storage)
  loki_add_subdirectory(../utils utils)
  loki_add_subdirectory(../pow pow)
  loki_add_subdirectory(../crypto crypto)
+-set(BUILD_SHARED_LIBS OFF CACHE BOOL "disable shared libraries") # Tells loki-mq to do a static build
 -loki_add_subdirectory(../vendors/loki-mq loki-mq)
  find_package(OpenSSL REQUIRED)
  
  set(Boost_LIBRARIES "${CMAKE_SOURCE_DIR}/boost/lib/libboost_filesystem.a;${CMAKE_SOURCE_DIR}/boost/lib/libboost_system.a;${CMAKE_SOURCE_DIR}/boost/lib/libboost_thread.a;-lpthread;${CMAKE_SOURCE_DIR}/boost/lib/libboost_program_options.a;${CMAKE_SOURCE_DIR}/boost/lib/libboost_chrono.a;${CMAKE_SOURCE_DIR}/boost/lib/libboost_date_time.a;${CMAKE_SOURCE_DIR}/boost/lib/libboost_atomic.a")
-@@ -59,12 +58,10 @@ target_link_libraries(httpserver_lib PUBLIC utils)
+@@ -60,7 +58,6 @@ target_link_libraries(httpserver_lib PUBLIC utils)
  target_link_libraries(httpserver_lib PUBLIC pow)
  target_link_libraries(httpserver_lib PUBLIC resolv)
  target_link_libraries(httpserver_lib PUBLIC crypto)
--target_link_libraries(httpserver_lib PUBLIC lokimq)
+-target_link_libraries(httpserver_lib PUBLIC lokimq::lokimq)
  
  set_property(TARGET httpserver_lib PROPERTY CXX_STANDARD 14)
  
- target_include_directories(httpserver_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${Boost_INCLUDE_DIRS})
--target_include_directories(httpserver_lib PUBLIC ../vendors/loki-mq/lokimq)
- target_link_libraries(httpserver_lib PUBLIC ${Boost_LIBRARIES})
- 
- set(BIN_NAME loki-storage)
 @@ -81,6 +78,11 @@ target_compile_definitions(httpserver PRIVATE -DSTORAGE_SERVER_GIT_HASH_STRING="
  target_compile_definitions(httpserver PRIVATE -DSTORAGE_SERVER_BUILD_TIME="${BUILD_TIME}")
  
@@ -60,29 +39,3 @@ index 8d404c9..8ae0899 100644
  if(PKG_CONFIG_FOUND)
      pkg_check_modules(SYSTEMD libsystemd)
      # Default ENABLE_SYSTEMD to true if we found it
-diff --git a/httpserver/lmq_server.cpp b/httpserver/lmq_server.cpp
-index 67f1d98..39200d2 100644
---- a/httpserver/lmq_server.cpp
-+++ b/httpserver/lmq_server.cpp
-@@ -7,7 +7,7 @@
- #include "request_handler.h"
- #include "utils.hpp"
- 
--#include "lokimq.h"
-+#include <lokimq/lokimq.h>
- 
- namespace loki {
- 
-diff --git a/httpserver/service_node.cpp b/httpserver/service_node.cpp
-index 9b70a36..a407053 100644
---- a/httpserver/service_node.cpp
-+++ b/httpserver/service_node.cpp
-@@ -8,7 +8,7 @@
- #include "loki_common.h"
- #include "loki_logger.h"
- #include "lokid_key.h"
--#include "lokimq.h"
-+#include <lokimq/lokimq.h>
- #include "net_stats.h"
- #include "serialization.h"
- #include "signature.h"
