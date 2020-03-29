@@ -1,3 +1,9 @@
+loki-storage-server (2.0.2-5~ubuntu1910) eoan; urgency=medium
+
+  * Rebuild against lokimq 1.0.4
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Sun, 29 Mar 2020 20:31:17 -0300
+
 loki-storage-server (2.0.2-4~ubuntu1910) eoan; urgency=medium
 
   * Fix liblokimq deb deps
