@@ -607,7 +607,7 @@ void connection_t::process_proxy_req() {
 
     const int req_idx = req_counter;
 
-    LOKI_LOG(debug, "[{}] Processing proxy request: we are first hop", req_idx);
+    LOKI_LOG(info, "[{}] Processing proxy request: we are first hop", req_idx);
 
     service_node_.record_proxy_request();
 

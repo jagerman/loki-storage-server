@@ -476,9 +476,9 @@ void RequestHandler::process_proxy_exit(
         LOKI_LOG(debug, "Long polling requested over a proxy request");
     }
 
-    this->process_client_req(body, [this, cb = std::move(cb), client_key, proxy_idx](loki::Response res) {
+    this->process_client_req(body, [this, cb = std::move(cb), client_key, idx = proxy_idx](loki::Response res) {
 
-        LOKI_LOG(info, "[{}] proxy about to respond with: {}", proxy_idx, to_string(res));
+        LOKI_LOG(info, "[{}] proxy about to respond with: {}", idx, res.status());
 
         cb(wrap_proxy_response(res, client_key, false /* use cbc */));
 

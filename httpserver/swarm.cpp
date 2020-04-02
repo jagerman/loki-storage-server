@@ -68,6 +68,21 @@ SwarmEvents Swarm::derive_swarm_events(const all_swarms_t& swarms) const {
     }
 
     const auto& new_swarm_snodes = our_swarm_it->snodes;
+
+    static bool reported_ip = false;
+
+    if (!reported_ip) {
+
+        for (auto &sn : new_swarm_snodes) {
+            if (sn.pub_key_hex() == our_address_.pub_key_hex()) {
+                LOKI_LOG(info, "OUR IP ADDRESS: {}", sn.ip());
+                reported_ip = true;
+            }
+        }
+
+    }
+
+
     const auto new_swarm_id = our_swarm_it->swarm_id;
 
     events.our_swarm_id = new_swarm_id;
