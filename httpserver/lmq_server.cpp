@@ -150,7 +150,7 @@ void LokimqServer::init(ServiceNode* sn, RequestHandler* rh,
                      std::string message) {
 #define LMQ_LOG_MAP(LMQ_LVL, SS_LVL) \
         case lokimq::LogLevel::LMQ_LVL: \
-            LOKI_LOG(SS_LVL, "[{}:{}]: {}", file, line, message); \
+            LOKI_LOG(info, "[{}:{}]: {}", file, line, message); \
             break;
 
         switch(level) {
