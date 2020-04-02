@@ -373,6 +373,8 @@ void ServiceNode::bootstrap_data() {
                         // TODO: this should be disabled in the "testnet" mode
                         // (or changed to point to testnet seeds)
                         this->on_bootstrap_update(bu);
+
+                        LOKI_LOG(info, "Bootstrapped from {}", seed_node.first);
                     } catch (const std::exception& e) {
                         LOKI_LOG(
                             error,
