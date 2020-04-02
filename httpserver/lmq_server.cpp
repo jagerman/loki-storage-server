@@ -22,7 +22,7 @@ std::string LokimqServer::peer_lookup(lokimq::string_view pubkey_bin) const {
     if (sn) {
         return fmt::format("tcp://{}:{}", sn->ip(), sn->lmq_port());
     } else {
-        LOKI_LOG(debug, "[LMQ] peer node not found!");
+        LOKI_LOG(debug, "[LMQ] peer node not found {}!", pubkey_bin);
         return "";
     }
 }
@@ -82,20 +82,25 @@ void LokimqServer::handle_sn_proxy_exit(lokimq::Message& message) {
     const auto& client_key = message.data[0];
     const auto& payload = message.data[1];
 
+    auto &reply_tag = message.reply_tag;
+    auto &origin_pk = message.conn.pubkey();
+
     // TODO: accept string_view?
-    auto res = request_handler_->process_proxy_exit(std::string(client_key), std::string(payload));
+    request_handler_->process_proxy_exit(std::string(client_key), std::string(payload), [this, origin_pk, reply_tag](loki::Response res) {
 
-    if (res.status() == Status::OK) {
+        if (res.status() == Status::OK) {
 
-        // TODO: we might want to delay reponding in the case of LP,
-        // unless the proxy delay is long enough
+            // TODO: we might want to delay reponding in the case of LP,
+            // unless the proxy delay is long enough
 
-        message.send_reply(res.message());
+            this->lokimq_->send(origin_pk, "REPLY", reply_tag, res.message());
 
-    } else {
-        // TODO: better handle this (unlikely) error
-        LOKI_LOG(debug, "Error: status is not OK for proxy_exit");
-    }
+        } else {
+            // TODO: better handle this (unlikely) error
+            LOKI_LOG(debug, "Error: status is not OK for proxy_exit");
+        }
+
+    });
 
 }
 
@@ -107,7 +112,7 @@ void LokimqServer::handle_onion_request(lokimq::Message& message) {
     auto &origin_pk = message.conn.pubkey();
 
     auto on_response = [this, origin_pk, reply_tag](loki::Response res) mutable {
-        LOKI_LOG(debug, "on response: {}", to_string(res));
+        LOKI_LOG(trace, "on response: {}", to_string(res));
 
         std::string status = std::to_string(static_cast<int>(res.status()));
 
@@ -129,7 +134,6 @@ void LokimqServer::handle_onion_request(lokimq::Message& message) {
 void LokimqServer::init(ServiceNode* sn, RequestHandler* rh,
                         const lokid_key_pair_t& keypair) {
 
-    namespace ph = std::placeholders;
     using lokimq::Allow;
     using lokimq::string_view;
 
@@ -141,13 +145,26 @@ void LokimqServer::init(ServiceNode* sn, RequestHandler* rh,
 
     auto logger = [](lokimq::LogLevel level, const char* file, int line,
                      std::string message) {
-        LOKI_LOG(debug, "[line: {}]: {}", line, message);
+#define LMQ_LOG_MAP(LMQ_LVL, SS_LVL) \
+        case lokimq::LogLevel::LMQ_LVL: \
+            LOKI_LOG(SS_LVL, "[{}:{}]: {}", file, line, message); \
+            break;
+
+        switch(level) {
+            LMQ_LOG_MAP(fatal, critical);
+            LMQ_LOG_MAP(error, error);
+            LMQ_LOG_MAP(warn, warn);
+            LMQ_LOG_MAP(info, info);
+            LMQ_LOG_MAP(trace, trace);
+            default:
+                LOKI_LOG(debug, "[{}:{}]: {}", file, line, message);
+        };
+#undef LMQ_LOG_MAP
     };
 
-    auto lookup_fn = std::bind(&LokimqServer::peer_lookup, this, ph::_1);
+    auto lookup_fn = [this](auto pk) { return peer_lookup(pk); };
 
-    auto allow_fn =
-        std::bind(&LokimqServer::auth_level_lookup, this, ph::_1, ph::_2);
+    auto allow_fn = [this](auto ip, auto pk) { return auth_level_lookup(ip, pk); };
 
     lokimq_.reset(new LokiMQ{pubkey,
                              seckey,
@@ -157,29 +174,23 @@ void LokimqServer::init(ServiceNode* sn, RequestHandler* rh,
 
     LOKI_LOG(info, "LokiMQ is listenting on port {}", port_);
 
-    lokimq_->add_category("sn",
-                          lokimq::Access{lokimq::AuthLevel::none, true, false});
-
     lokimq_->log_level(lokimq::LogLevel::warn);
 
     // ============= COMMANDS - BEGIN =============
-
-    lokimq_->add_request_command(
-        "sn", "data", std::bind(&LokimqServer::handle_sn_data, this, ph::_1));
-
-    lokimq_->add_request_command(
-        "sn", "proxy_exit",
-        std::bind(&LokimqServer::handle_sn_proxy_exit, this, ph::_1));
-
-    lokimq_->add_request_command(
-        "sn", "onion_req",
-        std::bind(&LokimqServer::handle_onion_request, this, ph::_1));
+    //
+    lokimq_->add_category("sn", lokimq::Access{lokimq::AuthLevel::none, true, false})
+        .add_request_command("data", [this](auto& m) { handle_sn_data(m); })
+        .add_request_command("proxy_exit", [this](auto& m) { handle_sn_proxy_exit(m); })
+        .add_request_command("onion_req", [this](auto& m) { handle_onion_request(m); })
+        ;
 
     // +============= COMMANDS - END ==============
 
     lokimq_->set_general_threads(1);
 
     lokimq_->listen_curve(fmt::format("tcp://0.0.0.0:{}", port_), allow_fn);
+
+    lokimq_->MAX_MSG_SIZE = 10 * 1024 * 1024; // 10 MB (needed by the fileserver)
 
     lokimq_->start();
 }

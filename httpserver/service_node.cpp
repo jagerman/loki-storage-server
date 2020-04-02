@@ -237,7 +237,7 @@ parse_swarm_update(const std::shared_ptr<std::string>& response_body) {
     std::map<swarm_id_t, std::vector<sn_record_t>> swarm_map;
     block_update_t bu;
 
-    LOKI_LOG(debug, "swarm repsonse: {}", *response_body);
+    LOKI_LOG(trace, "swarm repsonse: {}", *response_body);
 
     try {
         const auto& result = body.at("result");
@@ -469,8 +469,9 @@ void ServiceNode::send_onion_to_sn(const sn_record_t& sn,
 
     // NO mutex needed (I think)
 
-    lmq_server_.lmq()->request(sn.pubkey_x25519_bin(), "sn.onion_req",
-                               std::move(cb), eph_key, payload);
+    lmq_server_.lmq()->request(
+        sn.pubkey_x25519_bin(), "sn.onion_req", std::move(cb),
+        lokimq::send_option::request_timeout{10s}, eph_key, payload);
 }
 
 // Calls callback on success only?
@@ -731,10 +732,13 @@ void ServiceNode::on_swarm_update(const block_update_t& bu) {
     std::string reason;
     if (!this->snode_ready(boost::optional<std::string&>(reason))) {
         LOKI_LOG(warn, "Storage server is still not ready: {}", reason);
+        swarm_->update_state(bu.swarms, bu.decommissioned_nodes, events, false);
         return;
     } else {
         static bool active = false;
         if (!active) {
+            // NOTE: because we never reset `active` after we get decommissioned,
+            // this code won't run when the node comes back again
             LOKI_LOG(info, "Storage server is now active!");
 
             relay_timer_.expires_after(RELAY_INTERVAL);
@@ -745,19 +749,19 @@ void ServiceNode::on_swarm_update(const block_update_t& bu) {
         }
     }
 
-    swarm_->update_state(bu.swarms, bu.decommissioned_nodes, events);
+    swarm_->update_state(bu.swarms, bu.decommissioned_nodes, events, true);
 
     if (!events.new_snodes.empty()) {
-        bootstrap_peers(events.new_snodes);
+        this->bootstrap_peers(events.new_snodes);
     }
 
     if (!events.new_swarms.empty()) {
-        bootstrap_swarms(events.new_swarms);
+        this->bootstrap_swarms(events.new_swarms);
     }
 
     if (events.dissolved) {
         /// Go through all our PK and push them accordingly
-        salvage_data();
+        this->salvage_data();
     }
 
 #ifndef INTEGRATION_TEST
@@ -931,10 +935,14 @@ void ServiceNode::sign_request(std::shared_ptr<request_t>& req) const {
 
 void ServiceNode::test_reachability(const sn_record_t& sn) {
 
+    LockGuard guard(sn_mutex_);
+
     LOKI_LOG(debug, "Testing node for reachability {}", sn);
 
     auto callback = [this, sn](sn_response_t&& res) {
-        this->process_reach_test_response(std::move(res), sn.pub_key_base32z());
+
+        const bool success = res.error_code == SNodeError::NO_ERROR;
+        this->process_reach_test_result(sn.pub_key_base32z(), ReachType::HTTP, success);
     };
 
     nlohmann::json json_body;
@@ -943,6 +951,20 @@ void ServiceNode::test_reachability(const sn_record_t& sn) {
     this->sign_request(req);
 
     make_sn_request(ioc_, sn, req, std::move(callback));
+
+    // test lmq port:
+    lmq_server_.lmq()->connect_remote(
+        fmt::format("tcp://{}:{}", sn.ip(), sn.lmq_port()),
+        [this, sn](lokimq::ConnectionID c) {
+            this->process_reach_test_result(sn.pub_key_base32z(),
+                                            ReachType::ZMQ, true);
+            this->lmq_server_.lmq()->disconnect(c);
+        },
+        [this, sn](lokimq::ConnectionID c, lokimq::string_view err) {
+            this->process_reach_test_result(sn.pub_key_base32z(),
+                                            ReachType::ZMQ, false);
+        },
+        sn.pubkey_x25519_bin());
 }
 
 void ServiceNode::lokid_ping_timer_tick() {
@@ -1247,24 +1269,31 @@ void ServiceNode::report_node_reachability(const sn_pub_key_t& sn_pk,
                                      params, std::move(cb));
 }
 
-void ServiceNode::process_reach_test_response(sn_response_t&& res,
-                                              const sn_pub_key_t& pk) {
+void ServiceNode::process_reach_test_result(const sn_pub_key_t& pk, ReachType type, bool success) {
 
     LockGuard guard(sn_mutex_);
 
-    if (res.error_code == SNodeError::NO_ERROR) {
+    if (success) {
+
+        reach_records_.record_reachable(pk, type, true);
+
         // NOTE: We don't need to report healthy nodes that previously has been
         // not been reported to Lokid as unreachable but I'm worried there might
         // be some race conditions, so do it anyway for now.
-        this->report_node_reachability(pk, true);
-        return;
+
+        if (reach_records_.should_report_as(pk, ReportType::GOOD)) {
+            this->report_node_reachability(pk, true);
+        }
+
+    } else {
+        reach_records_.record_reachable(pk, type, false);
+
+        if (reach_records_.should_report_as(pk, ReportType::BAD)) {
+            // instead of this, we should set http to `unreachable`
+            this->report_node_reachability(pk, false);
+        }
     }
 
-    const bool should_report = reach_records_.record_unreachable(pk);
-
-    if (should_report) {
-        this->report_node_reachability(pk, false);
-    }
 }
 
 void ServiceNode::process_blockchain_test_response(
