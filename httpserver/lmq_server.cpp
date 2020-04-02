@@ -31,7 +31,7 @@ lokimq::Allow
 LokimqServer::auth_level_lookup(lokimq::string_view ip,
                                 lokimq::string_view pubkey) const {
 
-    LOKI_LOG(debug, "[LMQ] Auth Level Lookup");
+    LOKI_LOG(info, "[LMQ] Auth Level Lookup for {}", pubkey);
 
     // TODO: make SN accept string_view
     boost::optional<sn_record_t> sn =
