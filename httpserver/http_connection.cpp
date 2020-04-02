@@ -641,17 +641,16 @@ void connection_t::process_proxy_req() {
             return;
         }
 
-        if (success && data.size() == 1) {
-
+        if (!success) {
+            LOKI_LOG(info, "Proxy response FAILED (timeout), idx: {}", req_idx);
+            self->response_.result(http::status::gateway_timeout);
+        } else if (data.size() != 1) {
+            LOKI_LOG(info, "Proxy response FAILED (wrong data size), idx: {}", req_idx);
+            self->response_.result(http::status::internal_server_error);
+        } else {
             LOKI_LOG(info, "PROXY RESPONSE OK, idx: {}", req_idx);
-
             self->body_stream_ << data[0];
             self->response_.result(http::status::ok);
-        } else {
-            LOKI_LOG(info, "PROXY RESPONSE FAILED, idx: {}", req_idx);
-            LOKI_LOG(info, "    timeout: {}", !success);
-            // Most likely this is due to timeout
-            self->response_.result(http::status::gateway_timeout);
         }
 
         // This will return an empty, but failed response to the client

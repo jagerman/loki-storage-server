@@ -57,7 +57,7 @@ void init_logging(const std::string& data_dir,
     console_sink->set_level(log_level);
 
     auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        log_location, LOG_FILE_SIZE_LIMIT, EXTRA_FILES);
+        log_location, LOG_FILE_SIZE_LIMIT, EXTRA_FILES, true);
     file_sink->set_level(log_level);
 
     auto developer_sink = std::make_shared<loki::dev_sink_mt>();
