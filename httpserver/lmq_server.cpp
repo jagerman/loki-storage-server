@@ -148,21 +148,23 @@ void LokimqServer::init(ServiceNode* sn, RequestHandler* rh,
 
     auto logger = [](lokimq::LogLevel level, const char* file, int line,
                      std::string message) {
-#define LMQ_LOG_MAP(LMQ_LVL, SS_LVL) \
-        case lokimq::LogLevel::LMQ_LVL: \
-            LOKI_LOG(info, "[{}:{}]: {}", file, line, message); \
-            break;
+        LOKI_LOG(info, "[{}:{}]: {}", file, line, message);
+// #define LMQ_LOG_MAP(LMQ_LVL, SS_LVL) \
+    
+        // case lokimq::LogLevel::LMQ_LVL: \
+        //     LOKI_LOG(info, "[{}:{}]: {}", file, line, message); \
+        //     break;
 
-        switch(level) {
-            LMQ_LOG_MAP(fatal, critical);
-            LMQ_LOG_MAP(error, error);
-            LMQ_LOG_MAP(warn, warn);
-            LMQ_LOG_MAP(info, info);
-            LMQ_LOG_MAP(trace, trace);
-            default:
-                LOKI_LOG(debug, "[{}:{}]: {}", file, line, message);
-        };
-#undef LMQ_LOG_MAP
+        // switch(level) {
+        //     LMQ_LOG_MAP(fatal, critical);
+        //     LMQ_LOG_MAP(error, error);
+        //     LMQ_LOG_MAP(warn, warn);
+        //     LMQ_LOG_MAP(info, info);
+        //     LMQ_LOG_MAP(trace, trace);
+        //     default:
+        //         LOKI_LOG(debug, "[{}:{}]: {}", file, line, message);
+        // };
+// #undef LMQ_LOG_MAP
     };
 
     auto lookup_fn = [this](auto pk) { return peer_lookup(pk); };
