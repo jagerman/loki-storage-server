@@ -86,24 +86,25 @@ void LokimqServer::handle_sn_proxy_exit(lokimq::Message& message) {
     auto &origin_pk = message.conn.pubkey();
 
     // TODO: accept string_view?
-    request_handler_->process_proxy_exit(std::string(client_key), std::string(payload), [this, origin_pk, reply_tag](loki::Response res) {
+    request_handler_->process_proxy_exit(
+        std::string(client_key), std::string(payload),
+        [this, origin_pk, reply_tag](loki::Response res) {
+            LOKI_LOG(info, "    Proxy exit status: {}", res.status());
 
-        LOKI_LOG(info, "    Proxy exit status: {}", res.status());
+            if (res.status() == Status::OK) {
 
-        if (res.status() == Status::OK) {
+                // TODO: we might want to delay reponding in the case of LP,
+                // unless the proxy delay is long enough
 
-            // TODO: we might want to delay reponding in the case of LP,
-            // unless the proxy delay is long enough
+                this->lokimq_->send(origin_pk, "REPLY", reply_tag,
+                                    res.message());
 
-            this->lokimq_->send(origin_pk, "REPLY", reply_tag, res.message());
-
-        } else {
-            // TODO: better handle this (unlikely) error
-            LOKI_LOG(debug, "Error: status is not OK for proxy_exit");
-        }
-
-    });
-
+            } else {
+                // TODO: better handle this (unlikely) error
+                // WE SHOULD PROBABLY STILL REPLY HERE!!!
+                LOKI_LOG(debug, "Error: status is not OK for proxy_exit");
+            }
+        });
 }
 
 void LokimqServer::handle_onion_request(lokimq::Message& message) {
@@ -176,7 +177,7 @@ void LokimqServer::init(ServiceNode* sn, RequestHandler* rh,
 
     LOKI_LOG(info, "LokiMQ is listenting on port {}", port_);
 
-    lokimq_->log_level(lokimq::LogLevel::warn);
+    lokimq_->log_level(lokimq::LogLevel::debug);
 
     // ============= COMMANDS - BEGIN =============
     //
