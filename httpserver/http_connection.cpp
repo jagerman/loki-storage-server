@@ -603,7 +603,11 @@ void connection_t::process_onion_req() {
 
 void connection_t::process_proxy_req() {
 
-    LOKI_LOG(debug, "Processing proxy request: we are first hop");
+    static int req_counter = 0;
+
+    const int req_idx = req_counter;
+
+    LOKI_LOG(debug, "[{}] Processing proxy request: we are first hop", req_idx);
 
     service_node_.record_proxy_request();
 
@@ -625,10 +629,6 @@ void connection_t::process_proxy_req() {
 
     auto sn = service_node_.find_node_by_ed25519_pk(target_snode_key);
 
-    static int req_counter = 0;
-
-    const int req_idx = req_counter;
-
     // TODO: make an https response out of what we got back
     auto on_proxy_response = [wself = std::weak_ptr<connection_t>{shared_from_this()}, req_idx](
             bool success, std::vector<std::string> data) {
@@ -643,12 +643,12 @@ void connection_t::process_proxy_req() {
 
         if (success && data.size() == 1) {
 
-            LOKI_LOG(debug, "PROXY RESPONSE OK, idx: {}", req_idx);
+            LOKI_LOG(info, "PROXY RESPONSE OK, idx: {}", req_idx);
 
             self->body_stream_ << data[0];
             self->response_.result(http::status::ok);
         } else {
-            LOKI_LOG(debug, "PROXY RESPONSE FAILED, idx: {}", req_idx);
+            LOKI_LOG(info, "PROXY RESPONSE FAILED, idx: {}", req_idx);
         }
 
         // This will return an empty, but failed response to the client

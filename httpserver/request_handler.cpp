@@ -445,7 +445,9 @@ void RequestHandler::process_proxy_exit(
         return;
     }
 
-    LOKI_LOG(debug, "Process proxy exit");
+    static int proxy_idx = 0;
+
+    LOKI_LOG(info, "[{}] Process proxy exit", proxy_idx);
 
     const auto plaintext = channel_cipher_.decrypt_cbc(payload, client_key);
 
@@ -474,13 +476,15 @@ void RequestHandler::process_proxy_exit(
         LOKI_LOG(debug, "Long polling requested over a proxy request");
     }
 
-    this->process_client_req(body, [this, cb = std::move(cb), client_key](loki::Response res) {
+    this->process_client_req(body, [this, cb = std::move(cb), client_key, proxy_idx](loki::Response res) {
 
-        LOKI_LOG(trace, "about to respond with: {}", to_string(res));
+        LOKI_LOG(info, "[{}] proxy about to respond with: {}", proxy_idx, to_string(res));
 
         cb(wrap_proxy_response(res, client_key, false /* use cbc */));
 
     });
+
+    proxy_idx++;
 
 }
 
