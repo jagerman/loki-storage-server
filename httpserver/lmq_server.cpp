@@ -39,7 +39,7 @@ LokimqServer::auth_level_lookup(lokimq::string_view ip,
 
     bool is_sn = sn ? true : false;
 
-    LOKI_LOG(debug, "[LMQ]    is service node: {}", is_sn);
+    LOKI_LOG(info, "[LMQ]    is service node: {}", is_sn);
 
     return lokimq::Allow{lokimq::AuthLevel::none, is_sn};
 };
