@@ -69,12 +69,12 @@ void LokimqServer::handle_sn_data(lokimq::Message& message) {
 
 void LokimqServer::handle_sn_proxy_exit(lokimq::Message& message) {
 
-    LOKI_LOG(debug, "[LMQ] handle_sn_proxy_exit");
-    LOKI_LOG(debug, "[LMQ]   thread id: {}", std::this_thread::get_id());
-    LOKI_LOG(debug, "[LMQ]   from: {}", util::as_hex(message.conn.pubkey()));
+    LOKI_LOG(info, "[LMQ] handle_sn_proxy_exit");
+    LOKI_LOG(info, "[LMQ]   thread id: {}", std::this_thread::get_id());
+    LOKI_LOG(info, "[LMQ]   from: {}", util::as_hex(message.conn.pubkey()));
 
     if (message.data.size() != 2) {
-        LOKI_LOG(debug, "Expected 2 message parts, got {}",
+        LOKI_LOG(info, "Expected 2 message parts, got {}",
                  message.data.size());
         return;
     }
@@ -102,7 +102,7 @@ void LokimqServer::handle_sn_proxy_exit(lokimq::Message& message) {
             } else {
                 // TODO: better handle this (unlikely) error
                 // WE SHOULD PROBABLY STILL REPLY HERE!!!
-                LOKI_LOG(debug, "Error: status is not OK for proxy_exit");
+                LOKI_LOG(info, "Error: status is not OK for proxy_exit");
             }
         });
 }
