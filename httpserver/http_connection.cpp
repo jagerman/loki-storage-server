@@ -649,6 +649,8 @@ void connection_t::process_proxy_req() {
             self->response_.result(http::status::ok);
         } else {
             LOKI_LOG(info, "PROXY RESPONSE FAILED, idx: {}", req_idx);
+            // Most likely this is due to timeout
+            self->response_.result(http::status::gateway_timeout);
         }
 
         // This will return an empty, but failed response to the client
