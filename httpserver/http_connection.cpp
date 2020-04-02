@@ -627,6 +627,8 @@ void connection_t::process_proxy_req() {
     const auto& sender_key = header_[LOKI_SENDER_KEY_HEADER];
     const auto& target_snode_key = header_[LOKI_TARGET_SNODE_KEY];
 
+    LOKI_LOG(info, "[{}] Destination: {}", req_idx, target_snode_key);
+
     auto sn = service_node_.find_node_by_ed25519_pk(target_snode_key);
 
     // TODO: make an https response out of what we got back

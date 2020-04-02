@@ -490,7 +490,7 @@ void ServiceNode::send_to_sn(const sn_record_t& sn, ss_client::ReqMethod method,
     if (use_lmq) {
         // ===== make an lmq request =====
 
-        LOKI_LOG(debug, "Going to use lokimq to send {} request to {}",
+        LOKI_LOG(info, "Going to use lokimq to send {} request to {}",
                  method_str, util::as_hex(sn.pubkey_x25519_bin()));
 
         // NOTE: this is ugly, but we will remove HTTP option in the next
