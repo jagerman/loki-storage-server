@@ -88,6 +88,8 @@ void LokimqServer::handle_sn_proxy_exit(lokimq::Message& message) {
     // TODO: accept string_view?
     request_handler_->process_proxy_exit(std::string(client_key), std::string(payload), [this, origin_pk, reply_tag](loki::Response res) {
 
+        LOKI_LOG(info, "    Proxy exit status: {}", res.status());
+
         if (res.status() == Status::OK) {
 
             // TODO: we might want to delay reponding in the case of LP,
