@@ -42,10 +42,10 @@ index 014d61e..12c830e 100644
  set_property(TARGET common PROPERTY CXX_STANDARD 14)
  
 diff --git a/crypto/CMakeLists.txt b/crypto/CMakeLists.txt
-index b349eb3..fa7635c 100644
+index a0d3a55..ffc4888 100644
 --- a/crypto/CMakeLists.txt
 +++ b/crypto/CMakeLists.txt
-@@ -40,9 +40,7 @@ loki_add_subdirectory(../utils utils)
+@@ -41,9 +41,7 @@ loki_add_subdirectory(../utils utils)
  
  target_link_libraries(crypto PUBLIC utils)
  
