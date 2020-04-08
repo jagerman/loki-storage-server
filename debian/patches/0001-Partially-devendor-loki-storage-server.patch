@@ -3,26 +3,10 @@ Date: Tue, 16 Jul 2019 16:08:10 -0300
 Subject: Partially devendor loki-storage-server
 
 ---
- crypto/src/signature.cpp  | 4 ++--
  httpserver/CMakeLists.txt | 9 +--------
  storage/CMakeLists.txt    | 4 ++--
- 3 files changed, 5 insertions(+), 12 deletions(-)
+ 2 files changed, 3 insertions(+), 10 deletions(-)
 
-diff --git a/crypto/src/signature.cpp b/crypto/src/signature.cpp
-index 4efee3e..1af65fa 100644
---- a/crypto/src/signature.cpp
-+++ b/crypto/src/signature.cpp
-@@ -2,8 +2,8 @@
- #include "utils.hpp"
- 
- extern "C" {
--#include "loki/crypto-ops/crypto-ops.h"
--#include "loki/crypto-ops/hash-ops.h"
-+#include "loki/crypto/crypto-ops.h"
-+#include "loki/crypto/hash-ops.h"
- }
- 
- #include <sodium/crypto_generichash.h>
 diff --git a/httpserver/CMakeLists.txt b/httpserver/CMakeLists.txt
 index 78a1ce8..c50f9ff 100644
 --- a/httpserver/CMakeLists.txt
