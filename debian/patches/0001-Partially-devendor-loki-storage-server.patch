@@ -8,10 +8,10 @@ Subject: Partially devendor loki-storage-server
  2 files changed, 3 insertions(+), 10 deletions(-)
 
 diff --git a/httpserver/CMakeLists.txt b/httpserver/CMakeLists.txt
-index 78a1ce8..c50f9ff 100644
+index 48ff679..786123a 100644
 --- a/httpserver/CMakeLists.txt
 +++ b/httpserver/CMakeLists.txt
-@@ -81,16 +81,9 @@ set_property(TARGET httpserver PROPERTY CXX_STANDARD 14)
+@@ -60,16 +60,9 @@ set_property(TARGET httpserver PROPERTY CXX_STANDARD 14)
  target_link_libraries(httpserver PRIVATE httpserver_lib)
  install(TARGETS httpserver DESTINATION bin)
  # Build Info
@@ -30,10 +30,10 @@ index 78a1ce8..c50f9ff 100644
  
  find_package(PkgConfig QUIET)
 diff --git a/storage/CMakeLists.txt b/storage/CMakeLists.txt
-index 8ddd6fe..ee7c7a1 100644
+index 694702e..a4e79d8 100644
 --- a/storage/CMakeLists.txt
 +++ b/storage/CMakeLists.txt
-@@ -21,8 +21,8 @@ loki_add_subdirectory(../common common)
+@@ -17,8 +17,8 @@ loki_add_subdirectory(../common common)
  target_link_libraries(storage PRIVATE common)
  loki_add_subdirectory(../utils utils)
  target_link_libraries(storage PRIVATE utils)
