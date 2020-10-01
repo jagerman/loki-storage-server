@@ -12,7 +12,7 @@ curl -L https://builds.lokinet.dev/deps/boost_1_74_0.tar.bz2 | tar xj
 
 cd boost_1_74_0
 
-export CC=gcc-8 CXX=g++-8
+export CC=clang-8 CXX=clang++-8
 
 ./bootstrap.sh
 
