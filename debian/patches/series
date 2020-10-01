@@ -7,3 +7,4 @@
 0007-boost-beast-1.74-compatibility.patch
 0008-embedded-openssl-configuration.patch
 0009-Fix-mismatched-struct-class.patch
+0010-Disable-Werror.patch

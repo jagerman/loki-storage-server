@@ -1,0 +1,21 @@
+From: Jason Rhinelander <jason@imaginary.ca>
+Date: Thu, 1 Oct 2020 12:53:30 -0300
+Subject: Disable -Werror
+
+---
+ httpserver/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/httpserver/CMakeLists.txt b/httpserver/CMakeLists.txt
+index e48af17..71d950c 100644
+--- a/httpserver/CMakeLists.txt
++++ b/httpserver/CMakeLists.txt
+@@ -59,7 +59,7 @@ target_link_libraries(httpserver_lib PUBLIC ${Boost_LIBRARIES})
+ set(BIN_NAME loki-storage)
+ 
+ add_executable(httpserver main.cpp)
+-target_compile_options(httpserver PRIVATE -Wall -Wextra -Werror)
++target_compile_options(httpserver PRIVATE -Wall -Wextra)
+ set_target_properties(httpserver PROPERTIES OUTPUT_NAME ${BIN_NAME})
+ set_property(TARGET httpserver PROPERTY CXX_STANDARD 17)
+ set_property(TARGET httpserver PROPERTY CXX_STANDARD_REQUIRED TRUE)
