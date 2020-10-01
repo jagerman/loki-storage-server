@@ -18,14 +18,11 @@ echo "using clang : : clang++-8 : <ranlib>llvm-ranlib-8 <archiver>llvm-ar-8 ;" >
 
 ./bootstrap.sh --without-icu --with-toolset=clang --with-libraries=filesystem,program_options,system,thread
 
-./b2 -a --prefix=${PWD}/../boost link=static variant=release install \
-        --with-program_options \
-        --with-filesystem \
-        --with-system \
-        --with-thread \
-        --with-log \
-        --with-test \
-        --lto \
-        --user-config=./user-config.jam
+./b2 -d0 -a --prefix=${PWD}/../boost link=static runtime-link=static variant=release optimization=speed \
+        cxxflags=-fPIC cxxstd=14 visibility=global \
+        lto=on \
+        --disable-icu \
+        --user-config=${PWD}/user-config.jam \
+        install
 
 
