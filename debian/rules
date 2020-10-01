@@ -26,6 +26,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release \
 		$(DEB_CMAKE_ARCH_OPTIONS) \
 		-DCMAKE_C_COMPILER=clang-8 -DCMAKE_CXX_COMPILER=clang++-8 \
+		-DCMAKE_AR=llvm-ar-8 -DCMAKE_RANLIB=llvm-ranlib-8 \
 		-DLOKISS_VERSION_TAG=$(call dpkg_late_eval,LOKISS_VERSION_TAG,echo '$(DEB_VERSION)' | sed -e 's/.*-//')
 
 override_dh_strip:
