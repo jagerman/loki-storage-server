@@ -14,6 +14,8 @@ cd boost_1_74_0
 
 export CC=clang-8 CXX=clang++-8
 
+echo "using clang : : clang++-8 : <ranlib>llvm-ranlib-8 <archiver>llvm-ar-8 ;" >user-config.jam
+
 ./bootstrap.sh
 
 ./b2 -a --prefix=${PWD}/../boost link=static variant=release install \
@@ -23,6 +25,7 @@ export CC=clang-8 CXX=clang++-8
         --with-thread \
         --with-log \
         --with-test \
-        --lto
+        --lto \
+        --user-config=./user-config.jam
 
 
