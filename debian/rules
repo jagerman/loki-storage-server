@@ -22,6 +22,7 @@ endif
 
 override_dh_auto_configure:
 	./debian/setup_boost.sh
+	./debian/setup_libssl.sh
 	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release \
 		$(DEB_CMAKE_ARCH_OPTIONS) \
 		-DCMAKE_C_COMPILER=clang-8 -DCMAKE_CXX_COMPILER=clang++-8 \

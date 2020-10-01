@@ -1,0 +1,22 @@
+From: Jason Rhinelander <jason@imaginary.ca>
+Date: Mon, 16 Mar 2020 11:34:22 -0300
+Subject: embedded openssl configuration
+
+---
+ CMakeLists.txt | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ed80962..89a6d2b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -21,6 +21,9 @@ endif()
+ 
+ set(Boost_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/boost/include")
+ 
++set(OPENSSL_ROOT_DIR "${CMAKE_SOURCE_DIR}/libssl")
++set(OPENSSL_USE_STATIC_LIBS TRUE)
++
+ if (DISABLE_SNODE_SIGNATURE)
+     add_definitions(-DDISABLE_SNODE_SIGNATURE)
+ endif()
