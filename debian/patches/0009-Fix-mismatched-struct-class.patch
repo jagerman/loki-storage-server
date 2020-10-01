@@ -1,0 +1,21 @@
+From: Jason Rhinelander <jason@imaginary.ca>
+Date: Thu, 1 Oct 2020 11:18:49 -0300
+Subject: Fix mismatched struct/class
+
+---
+ httpserver/http_connection.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/httpserver/http_connection.h b/httpserver/http_connection.h
+index 24fccac..768dbf7 100644
+--- a/httpserver/http_connection.h
++++ b/httpserver/http_connection.h
+@@ -41,7 +41,7 @@ namespace loki {
+ std::shared_ptr<request_t> build_post_request(const char* target,
+                                               std::string&& data);
+ 
+-struct Security;
++class Security;
+ 
+ class RequestHandler;
+ class Response;
