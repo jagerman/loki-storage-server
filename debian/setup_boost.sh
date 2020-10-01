@@ -16,7 +16,7 @@ export CC=clang-8 CXX=clang++-8
 
 echo "using clang : : clang++-8 : <ranlib>llvm-ranlib-8 <archiver>llvm-ar-8 ;" >user-config.jam
 
-./bootstrap.sh
+./bootstrap.sh --without-icu --with-toolset=clang --with-libraries=filesystem,program_options,system,thread
 
 ./b2 -a --prefix=${PWD}/../boost link=static variant=release install \
         --with-program_options \
