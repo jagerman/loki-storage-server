@@ -34,8 +34,8 @@ static void check_incoming_tests_impl(
                     "Have not received {} pings for a long time ({:.1f} mins)!",
                     name, fminutes{elapsed}.count());
             }
-            OXEN_LOG(warn, "Please check your {0} port. Not being reachable "
-                    "over {0} may result in a deregistration!", name);
+            OXEN_LOG(warn, "Please check your {} port. Not being reachable "
+                    "over {} may result in a deregistration!", name, name);
         }
     }
 }
