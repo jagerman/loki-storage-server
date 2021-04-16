@@ -26,7 +26,7 @@ template <typename Derived, size_t KeyLength>
 struct alignas(size_t) key_base : std::array<unsigned char, KeyLength> {
     std::string_view view() const { return {reinterpret_cast<const char*>(this->data()), KeyLength}; }
     std::string hex() const { return detail::to_hex(this->data(), KeyLength); }
-    explicit operator bool() const { return *this == detail::null_bytes<KeyLength>; }
+    explicit operator bool() const { return *this != detail::null_bytes<KeyLength>; }
 
     // Loads the key from a hex string; throws if the hex is the wrong size or not hex.
     static Derived from_hex(std::string_view hex) {
