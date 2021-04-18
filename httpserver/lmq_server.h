@@ -15,6 +15,7 @@ namespace oxen {
 struct oxend_key_pair_t;
 class ServiceNode;
 class RequestHandler;
+enum class EncryptType;
 
 void omq_logger(oxenmq::LogLevel level, const char* file, int line,
         std::string message);
@@ -38,8 +39,17 @@ class OxenmqServer {
     // Handle Session client requests arrived via proxy
     void handle_sn_proxy_exit(oxenmq::Message& message);
 
-    // v2 indicates whether to use the new (v2) protocol
-    void handle_onion_request(oxenmq::Message& message, bool v2);
+    // sn.onion_req_v2. Deprecated: unextensible onion request handler, takes two message parts:
+    // [ephemeral_key, payload].  Will be removed after HF18.
+    void handle_onion_request_v2(oxenmq::Message& message);
+
+    // sn.onion_req handler for HF18+: takes bencoded dict with keys:
+    // ! - onion req version, currently 1; 2 is allowed for a future backwards compatibile update,
+    //     3+ is an error.
+    // c - ciphertext data
+    // e - ephemeral key of sender
+    // t - encryption type (typically xchacha20 or aes-gcm)
+    void handle_onion_request(oxenmq::Message& message);
 
     // sn.ping - sent by SNs to ping each other.
     void handle_ping(oxenmq::Message& message);

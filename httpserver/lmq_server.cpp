@@ -8,6 +8,7 @@
 #include "oxenmq/oxenmq.h"
 #include "request_handler.h"
 #include "service_node.h"
+#include "channel_encryption.hpp"
 
 #include <oxenmq/hex.h>
 #include <nlohmann/json.hpp>
@@ -103,8 +104,7 @@ void OxenmqServer::handle_ping(oxenmq::Message& message) {
     message.send_reply("pong");
 }
 
-void OxenmqServer::handle_onion_request(oxenmq::Message& message, bool v2) {
-
+void OxenmqServer::handle_onion_request(oxenmq::Message& message) {
     OXEN_LOG(debug, "Got an onion request over OXENMQ");
 
     auto on_response = [send=message.send_later()](oxen::Response res) {
@@ -116,6 +116,42 @@ void OxenmqServer::handle_onion_request(oxenmq::Message& message, bool v2) {
                 std::move(res).message());
     };
 
+    if (message.data.empty()) {
+        OXEN_LOG(error, "Invalid OMQ onion request: no message");
+        return on_response({Status::BAD_REQUEST, "Invalid onion request data"});
+    }
+
+    try {
+        oxenmq::bt_dict_consumer d{message.data.front()};
+        // Reminder: we have to search in alphabetical order
+        if (!d.skip_until("!"))
+            throw std::runtime_error{"no version"};
+
+        if (auto version = d.consume_integer<int>(); version < 1 || version > 2)
+            // Allow v2 to mean some addition that remains backwards compatible with v1
+            throw std::runtime_error{"unsupported request v" + std::to_string(version)};
+
+        if (!d.skip_until("c"))
+            throw std::runtime_error{"no ciphertext"};
+        auto ciphertext = d.consume_string_view();
+
+        if (!d.skip_until("e"))
+            throw std::runtime_error{"on ephemeral key"};
+        auto eph_key = x25519_pubkey::from_hex(d.consume_string_view());
+
+        if (!d.skip_until("t"))
+            throw std::runtime_error{"no encryption type"};
+        auto enc_type = parse_enc_type(d.consume_string_view());
+
+        request_handler_->process_onion_req(ciphertext, eph_key, std::move(on_response), enc_type);
+    } catch (const std::exception& e) {
+        return on_response({Status::BAD_REQUEST, "Invalid OMQ onion request: "s + e.what()});
+    }
+}
+
+void OxenmqServer::handle_onion_request_v2(oxenmq::Message& message) {
+
+
     if (message.data.size() != 2) {
         OXEN_LOG(error, "Expected 2 message parts, got {}",
                  message.data.size());
@@ -124,12 +160,11 @@ void OxenmqServer::handle_onion_request(oxenmq::Message& message, bool v2) {
         return;
     }
 
+    // The first part of the message can either be a raw 
     auto eph_key = extract_x25519_from_hex(message.data[0]);
     if (!eph_key) return;
     const auto& ciphertext = message.data[1];
 
-    request_handler_->process_onion_req(std::string(ciphertext),
-                                        *eph_key, on_response, v2);
 }
 
 void OxenmqServer::handle_get_logs(oxenmq::Message& message) {
@@ -211,8 +246,8 @@ OxenmqServer::OxenmqServer(
                 // TODO: Backwards compat crap to be removed after HF18:
                 if (m.data.size() == 1 && m.data[0] == "ping"sv)
                     return handle_ping(m);
-                handle_onion_request(m, false); })
-        .add_request_command("onion_req_v2", [this](auto& m) { this->handle_onion_request(m, true); })
+                handle_onion_request(m); })
+        .add_request_command("onion_req_v2", [this](auto& m) { handle_onion_request_v2(m); }) // Deprecated, TODO: remove after HF18
         ;
 
     omq_.add_category("service", oxenmq::AuthLevel::admin)

@@ -11,6 +11,7 @@ struct sn_record_t {
     std::string ip;
     uint16_t port{0};
     uint16_t lmq_port{0};
+    std::array<uint16_t, 3> version{0,0,0};
     legacy_pubkey pubkey_legacy{};
     ed25519_pubkey pubkey_ed25519{};
     x25519_pubkey pubkey_x25519{};

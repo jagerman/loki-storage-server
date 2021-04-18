@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
         }
 #endif
 
-        sn_record_t me{"0.0.0.0", options.port, options.lmq_port,
+        sn_record_t me{"0.0.0.0", options.port, options.lmq_port, STORAGE_SERVER_VERSION,
                 private_key.pubkey(), private_key_ed25519.pubkey(), private_key_x25519.pubkey()};
 
         OXEN_LOG(info, "Retrieved keys from oxend; our SN pubkeys are:");

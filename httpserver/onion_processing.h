@@ -4,6 +4,7 @@
 #include <string>
 #include <variant>
 #include "oxend_key.h"
+#include "channel_encryption.hpp"
 
 namespace oxen {
 
@@ -15,6 +16,8 @@ struct RelayToNodeInfo {
     std::string ciphertext;
     // Key to be forwarded to next node for decryption
     std::string ephemeral_key;
+    // Payload encryption type
+    EncryptType enc_type;
     // Next node's ed25519 key
     ed25519_pubkey next_node;
 };

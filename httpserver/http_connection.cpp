@@ -1,6 +1,7 @@
 #include "http_connection.h"
 #include "Database.hpp"
 
+#include "channel_encryption.hpp"
 #include "net_stats.h"
 #include "rate_limiter.h"
 #include "security.h"
@@ -523,9 +524,13 @@ void connection_t::process_onion_req_v2() {
         auto ephem_key = extract_x25519_from_hex(
                 json_req.at("ephemeral_key").get_ref<const std::string&>());
 
+        auto enc_type = EncryptType::aes_gcm; // Default for backwards compatibility
+        if (auto it = json_req.find("enc_type"); it != json_req.end())
+            enc_type = parse_enc_type(it->get_ref<const std::string&>());
+
         service_node_.record_onion_request();
         request_handler_.process_onion_req(std::move(ciphertext), ephem_key,
-                                           on_response, true);
+                                           on_response, enc_type);
 
     } catch (const std::exception& e) {
         auto msg = fmt::format("Error parsing onion request: {}",

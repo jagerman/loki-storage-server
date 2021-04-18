@@ -29,6 +29,8 @@ inline constexpr size_t BLOCK_HASH_CACHE_SIZE = 30;
 inline constexpr int STORAGE_SERVER_HARDFORK = 17;
 // HF in which we start using sn.ping OMQ endpoint
 inline constexpr int HARDFORK_SN_PING = 18;
+// HF in which we start using new sn.onion_req onion requests
+inline constexpr int HARDFORK_SN_ONION_REQ = 18;
 
 namespace storage {
 struct Item;
@@ -37,6 +39,8 @@ struct Item;
 struct sn_response_t;
 
 class OxenmqServer;
+
+enum class EncryptType;
 
 namespace ss_client {
 class Request;
@@ -201,16 +205,14 @@ class ServiceNode {
     void record_proxy_request();
     void record_onion_request();
 
-    // This is new, so it does not need to support http, thus new (if temp)
-    // method
-    void send_onion_to_sn_v1(const sn_record_t& sn, const std::string& payload,
-                             const std::string& eph_key,
-                             ss_client::Callback cb) const;
-
-    /// Same as v1, but using the new protocol (ciphertext as binary)
-    void send_onion_to_sn_v2(const sn_record_t& sn, const std::string& payload,
-                             const std::string& eph_key,
-                             ss_client::Callback cb) const;
+    /// Sends an onion request; up until HF18 this uses the non-extensible sn.onion_req_v2 endpoint,
+    /// afterwards it uses sn.onion_req with a bencoded value.
+    void send_onion_to_sn(
+            const sn_record_t& sn,
+            std::string payload,
+            std::string eph_key,
+            ss_client::Callback cb,
+            EncryptType enc_type) const;
 
     // TODO: move this eventually out of SN
     // Send by either http or omq

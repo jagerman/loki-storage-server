@@ -2,6 +2,7 @@
 
 #include "Database.hpp"
 #include "Item.hpp"
+#include "channel_encryption.hpp"
 #include "http_connection.h"
 #include "https_client.h"
 #include "lmq_server.h"
@@ -154,10 +155,16 @@ parse_swarm_update(const std::string& response_body, bool from_json_rpc = false)
                 sn_json.at("public_ip").get_ref<const std::string&>(),
                 sn_json.at("storage_port").get<uint16_t>(),
                 sn_json.at("storage_lmq_port").get<uint16_t>(),
+                {0,0,0},
                 legacy_pubkey::from_hex(
                         sn_json.at("service_node_pubkey").get_ref<const std::string&>()),
                 ed25519_pubkey::from_hex(pk_ed25519_hex),
                 x25519_pubkey::from_hex(pk_x25519_hex)};
+
+            // TODO: after HF18 storage_server_version will always be present, so we can just inline
+            // this into the above.
+            if (auto it = sn_json.find("storage_server_version"); it != sn_json.end())
+                sn.version = it->get<decltype(sn.version)>();
 
             const swarm_id_t swarm_id =
                 sn_json.at("swarm_id").get<swarm_id_t>();
@@ -194,6 +201,7 @@ void ServiceNode::bootstrap_data() {
     json params{
         {"fields", {
             {"service_node_pubkey", true},
+            {"storage_server_version", true},
             {"swarm_id", true},
             {"storage_port", true},
             {"public_ip", true},
@@ -286,24 +294,30 @@ bool ServiceNode::snode_ready(std::string* reason) {
     return problems.empty() || force_start_;
 }
 
-void ServiceNode::send_onion_to_sn_v1(const sn_record_t& sn,
-                                      const std::string& payload,
-                                      const std::string& eph_key,
-                                      ss_client::Callback cb) const {
+void ServiceNode::send_onion_to_sn(
+        const sn_record_t& sn,
+        std::string payload,
+        std::string eph_key,
+        ss_client::Callback cb,
+        EncryptType enc_type) const {
 
-    lmq_server_->request(sn.pubkey_x25519.view(), "sn.onion_req", std::move(cb),
-                         oxenmq::send_option::request_timeout{30s}, eph_key,
-                         payload);
-}
+    // TODO: remove after HF18
+    if (!hf_at_least(HARDFORK_SN_ONION_REQ)) {
+        lmq_server_->request(
+            sn.pubkey_x25519.view(), "sn.onion_req_v2", std::move(cb),
+            oxenmq::send_option::request_timeout{30s}, eph_key, payload);
+        return;
+    }
 
-void ServiceNode::send_onion_to_sn_v2(const sn_record_t& sn,
-                                      const std::string& payload,
-                                      const std::string& eph_key,
-                                      ss_client::Callback cb) const {
+    auto msg = bt_serialize(oxenmq::bt_dict{
+        {"!", 1},
+        {"c", std::move(payload)},
+        {"e", std::move(eph_key)},
+        {"t", to_string(enc_type)}
+    });
 
     lmq_server_->request(
-        sn.pubkey_x25519.view(), "sn.onion_req_v2", std::move(cb),
-        oxenmq::send_option::request_timeout{30s}, eph_key, payload);
+        sn.pubkey_x25519.view(), "sn.onion_req", std::move(cb), std::move(msg));
 }
 
 // Calls callback on success only?
@@ -594,6 +608,7 @@ void ServiceNode::update_swarms() {
     json params{
         {"fields", {
             {"service_node_pubkey", true},
+            {"storage_server_version", true},
             {"swarm_id", true},
             {"storage_port", true},
             {"public_ip", true},

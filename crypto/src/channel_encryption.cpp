@@ -32,6 +32,7 @@ calculate_shared_secret(const x25519_seckey& seckey,
 }
 
 EncryptType parse_enc_type(std::string_view enc_type) {
+    if (enc_type == "xchacha20") return EncryptType::xchacha20;
     if (enc_type == "aes-gcm" || enc_type == "gcm") return EncryptType::aes_gcm;
     if (enc_type == "aes-cbc" || enc_type == "cbc") return EncryptType::aes_cbc;
     throw std::runtime_error{"Invalid encryption type " + std::string{enc_type}};
@@ -73,6 +74,7 @@ using aes256cbc_ctx_ptr = std::unique_ptr<EVP_CIPHER_CTX, aes256_evp_deleter>;
 
 std::string ChannelEncryption::encrypt(EncryptType type, std::string_view plaintext, const x25519_pubkey& pubkey) const {
     switch (type) {
+        case EncryptType::xchacha20: return encrypt_xchacha20(plaintext, pubkey);
         case EncryptType::aes_gcm: return encrypt_gcm(plaintext, pubkey);
         case EncryptType::aes_cbc: return encrypt_cbc(plaintext, pubkey);
     }
@@ -81,6 +83,7 @@ std::string ChannelEncryption::encrypt(EncryptType type, std::string_view plaint
 
 std::string ChannelEncryption::decrypt(EncryptType type, std::string_view ciphertext, const x25519_pubkey& pubkey) const {
     switch (type) {
+        case EncryptType::xchacha20: return decrypt_xchacha20(ciphertext, pubkey);
         case EncryptType::aes_gcm: return decrypt_gcm(ciphertext, pubkey);
         case EncryptType::aes_cbc: return decrypt_cbc(ciphertext, pubkey);
     }
