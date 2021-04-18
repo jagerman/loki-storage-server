@@ -496,7 +496,7 @@ void RequestHandler::process_proxy_exit(
 
     if (!service_node_.snode_ready()) {
         auto res = Response{Status::SERVICE_UNAVAILABLE, "Snode not ready"};
-        cb(wrap_proxy_response(res, client_key, false));
+        cb(wrap_proxy_response(res, client_key, EncryptType::aes_cbc));
         return;
     }
 
@@ -517,7 +517,7 @@ void RequestHandler::process_proxy_exit(
 
         // TODO: since we always seem to encrypt the response, we should
         // do it once one level above instead
-        cb(wrap_proxy_response(res, client_key, false));
+        cb(wrap_proxy_response(res, client_key, EncryptType::aes_cbc));
         return;
     }
 
@@ -541,7 +541,7 @@ void RequestHandler::process_proxy_exit(
         auto msg = fmt::format("JSON parsing error: {}", e.what());
         OXEN_LOG(debug, "[{}] {}", idx, msg);
         auto res = Response{Status::BAD_REQUEST, msg};
-        cb(wrap_proxy_response(res, client_key, false /* use cbc */));
+        cb(wrap_proxy_response(res, client_key, EncryptType::aes_cbc));
         return;
     }
 
@@ -554,7 +554,7 @@ void RequestHandler::process_proxy_exit(
             OXEN_LOG(debug, "[{}] proxy about to respond with: {}", idx,
                      res.status());
 
-            cb(wrap_proxy_response(res, client_key, false /* use cbc */));
+            cb(wrap_proxy_response(res, client_key, EncryptType::aes_cbc));
         });
 }
 
