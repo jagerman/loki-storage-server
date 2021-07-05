@@ -116,8 +116,8 @@ local static_build_deps='autoconf automake make file libtool pkg-config patch op
     // Various debian builds
     debian_pipeline("Debian (amd64)", docker_base+"debian-sid", lto=true),
     debian_pipeline("Debian Debug (amd64)", "debian:sid", build_type='Debug'),
-    debian_pipeline("Debian clang-11 (amd64)", docker_base+"debian-sid", deps='clang-11 '+default_deps_base,
-                    cmake_extra='-DCMAKE_C_COMPILER=clang-11 -DCMAKE_CXX_COMPILER=clang++-11 ', lto=true),
+    debian_pipeline("Debian clang-12 (amd64)", docker_base+"debian-sid", deps='clang-12 '+default_deps_base,
+                    cmake_extra='-DCMAKE_C_COMPILER=clang-12 -DCMAKE_CXX_COMPILER=clang++-12 ', lto=true),
     debian_pipeline("Debian buster (i386)", "i386/debian:buster", deps=default_deps_base+' g++ make file',
                     cmake_extra='-DDOWNLOAD_SODIUM=ON'),
     debian_pipeline("Ubuntu focal (amd64)", docker_base+"ubuntu-focal"),
