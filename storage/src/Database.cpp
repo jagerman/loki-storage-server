@@ -180,16 +180,19 @@ public:
                 rc != SQLITE_OK)
             OXEN_LOG(err, "Failed to set synchronous mode to NORMAL: {}", sqlite3_errstr(rc));
 
-        if (int rc = db.tryExec("PRAGMA foreign_keys = ON");
-                rc != SQLITE_OK) {
-            auto m = fmt::format("Failed to enable foreign keys constraints: {}", sqlite3_errstr(rc));
-            OXEN_LOG(critical, m);
-            throw std::runtime_error{m};
-        }
-        int fk_enabled = db.execAndGet("PRAGMA foreign_keys").getInt();
-        if (fk_enabled != 1) {
-            OXEN_LOG(critical, "Failed to enable foreign key constraints; perhaps this sqlite3 is compiled without it?");
-            throw std::runtime_error{"Foreign key support is required"};
+        for (auto& [name, field] : std::initializer_list<std::pair<const char*, int>>{
+            {"foreign key constraints", (int) SQLITE_DBCONFIG_ENABLE_FKEY},
+            {"database triggers", (int) SQLITE_DBCONFIG_ENABLE_TRIGGER}}) {
+            int enabled;
+            int rc = sqlite3_db_config(db.getHandle(), field, 1, &enabled);
+            if (rc != SQLITE_OK) {
+                auto m = fmt::format("Failed to enable {}: {}", name, sqlite3_errstr(rc));
+                OXEN_LOG(critical, m);
+                throw std::runtime_error{m};
+            } else if (enabled != 1) {
+                OXEN_LOG(critical, "Failed to enable {}; perhaps this sqlite3 is compiled without it?", name);
+                throw std::runtime_error{"Required database features not available"};
+            }
         }
 
         page_size = db.execAndGet("PRAGMA page_size").getInt();
