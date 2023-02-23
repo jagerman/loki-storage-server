@@ -1572,6 +1572,11 @@ void RequestHandler::process_onion_req(RelayToNodeInfo&& info, OnionRequestMetad
             return cb({http::INTERNAL_SERVER_ERROR, "Invalid response from snode"s});
         }
 
+        if (data[1].find("magic string") != std::string::npos) {
+            log::warning(logcat, "magic string seen in onion request response: '{}'", data[1]);
+        }
+
+
         Response res{http::INTERNAL_SERVER_ERROR, std::move(data[1])};
         if (int code; util::parse_int(data[0], code))
             res.status = http::from_code(code);
