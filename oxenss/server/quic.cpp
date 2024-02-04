@@ -40,10 +40,7 @@ QUIC::QUIC(
         network{std::make_unique<oxen::quic::Network>()},
         tls_creds{oxen::quic::GNUTLSCreds::make_from_ed_seckey(sk.str())},
         ep{network->endpoint(
-                sk.pubkey().snode_address() ==
-                                "55fxrrdt9ggkra9yoi58gbespa13is1sqqrykdzjamgkxrq91tto.snode"sv
-                        ? Address{local.host(), static_cast<uint16_t>(local.port() + 100)}
-                        : local,
+                local,
                 make_endpoint_static_secret(sk),
                 oxen::quic::opt::inbound_alpns{{uALPN}},
                 oxen::quic::opt::outbound_alpns{{uALPN}})},
