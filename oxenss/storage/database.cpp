@@ -26,6 +26,8 @@ namespace oxenss {
 
 static auto logcat = log::Cat("db");
 
+static auto perfcat = log::Cat("PERF");
+
 constexpr std::chrono::milliseconds SQLite_busy_timeout = 15s;
 
 namespace {
@@ -566,38 +568,66 @@ LockedDBImpl Database::get_impl() {
             std::make_unique<DatabaseImpl>(*this, db_path_, /*initialize=*/false), *this};
 }
 
+struct debug_timer {
+    std::string name;
+    std::chrono::steady_clock::time_point s = std::chrono::steady_clock::now();
+    debug_timer(std::string n) : name{std::move(n)} {}
+    ~debug_timer() {
+        log();
+    }
+    void log() {
+        auto ms = std::chrono::duration<double>{std::chrono::steady_clock::now() - s}.count() * 1000.0;
+        if (ms > 5)
+            log::warning(perfcat, "slow query: {} {:.3f}ms", name, ms);
+        else
+            log::debug(perfcat, "fast query {} {:.3f}ms", name, ms);
+    }
+    void reset(std::string n) {
+        log();
+        name = std::move(n);
+        s = std::chrono::steady_clock::now();
+    }
+};
+
 void Database::clean_expired() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     get_impl()->prepared_exec(
             "DELETE FROM messages WHERE expiry <= ?",
             to_epoch_ms(std::chrono::system_clock::now()));
 }
 
 int64_t Database::get_message_count() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     return get_impl()->prepared_get<int64_t>("SELECT COUNT(*) FROM messages");
 }
 
 int64_t Database::get_owner_count() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     return get_impl()->prepared_get<int64_t>("SELECT COUNT(*) FROM owners");
 }
 
 std::vector<int> Database::get_message_counts() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     auto st = impl->prepared_st("SELECT COUNT(*) FROM messages GROUP BY owner");
     return get_all<int>(st);
 }
 
 std::vector<std::pair<namespace_id, int64_t>> Database::get_namespace_counts() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     auto st = impl->prepared_st("SELECT namespace, COUNT(*) FROM messages GROUP BY namespace");
     return get_all<namespace_id, int64_t>(st);
 }
 
 int64_t Database::get_total_bytes() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     return impl->prepared_get<int64_t>("PRAGMA page_count") * impl->page_size;
 }
 
 int64_t Database::get_used_bytes() {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     return get_total_bytes() -
            impl->prepared_get<int64_t>("PRAGMA freelist_count") * impl->page_size;
@@ -623,6 +653,7 @@ static std::optional<message> get_message(DatabaseImpl& impl, SQLite::Statement&
 
 std::optional<message> Database::retrieve_random() {
     clean_expired();
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     auto st = impl->prepared_st(
             "SELECT hash, type, pubkey, namespace, timestamp, expiry, data"
@@ -632,6 +663,7 @@ std::optional<message> Database::retrieve_random() {
 }
 
 std::optional<message> Database::retrieve_by_hash(const std::string& msg_hash) {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     auto st = impl->prepared_st(
             "SELECT hash, type, pubkey, namespace, timestamp, expiry, data"
@@ -649,6 +681,7 @@ StoreResult Database::store(const message& msg, std::chrono::system_clock::time_
 
         SQLite::Transaction transaction{impl->db};
 
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         int64_t owner_id;
         if (auto maybe = exec_and_maybe_get<int64_t>(
                     impl->prepared_st("SELECT id FROM owners WHERE pubkey = ? AND type = ?"),
@@ -661,6 +694,7 @@ StoreResult Database::store(const message& msg, std::chrono::system_clock::time_
         // When storing to a public namespace we clear anything there (except for a duplicate, to
         // avoid unnecessary storage churn).
         if (is_public_outbox_namespace(msg.msg_namespace)) {
+            query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
             impl->prepared_exec(
                     "DELETE FROM messages"
                     " WHERE owner = ? AND namespace = ? AND hash != ?",
@@ -671,11 +705,13 @@ StoreResult Database::store(const message& msg, std::chrono::system_clock::time_
 
         auto new_exp = to_epoch_ms(msg.expiry);
 
+        query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
         if (auto existing = exec_and_maybe_get<int64_t, int64_t>(
                     impl->prepared_st("SELECT id, expiry FROM messages WHERE hash = ?"),
                     msg.hash)) {
             auto& [id, exp] = *existing;
             if (exp < new_exp) {
+                query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
                 impl->prepared_exec("UPDATE messages SET expiry = ? WHERE id = ?", new_exp, id);
                 ret = StoreResult::Extended;
                 exp = new_exp;
@@ -685,6 +721,7 @@ StoreResult Database::store(const message& msg, std::chrono::system_clock::time_
             if (expiry)
                 *expiry = from_epoch_ms(exp);
         } else {
+            query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
             impl->prepared_exec(
                     "INSERT INTO messages (owner, hash, namespace, timestamp, expiry, data)"
                     " VALUES (?, ?, ?, ?, ?, ?)",
@@ -700,6 +737,7 @@ StoreResult Database::store(const message& msg, std::chrono::system_clock::time_
                 *expiry = msg.expiry;
         }
 
+        query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
         transaction.commit();
 
     } catch (const SQLite::Exception& e) {
@@ -716,6 +754,7 @@ StoreResult Database::store(const message& msg, std::chrono::system_clock::time_
 }
 
 void Database::bulk_store(const std::vector<message>& items) {
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     SQLite::Transaction t{impl->db};
     auto get_owner = impl->prepared_st("SELECT id FROM owners WHERE pubkey = ? AND type = ?");
@@ -779,6 +818,7 @@ std::pair<std::vector<message>, bool> Database::retrieve(
         const bool size_b64,
         const size_t per_message_overhead) {
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto impl = get_impl();
     auto owner_st = impl->prepared_st("SELECT id FROM owners WHERE pubkey = ? AND type = ?");
     auto ownerid = exec_and_maybe_get<int64_t>(owner_st, pubkey);
@@ -790,11 +830,13 @@ std::pair<std::vector<message>, bool> Database::retrieve(
 
     std::optional<int64_t> last_id;
     if (!last_hash.empty()) {
+        query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
         auto st = impl->prepared_st(
                 "SELECT id FROM messages WHERE owner = ? AND namespace = ? AND hash = ?");
         last_id = exec_and_maybe_get<int64_t>(st, *ownerid, to_int(ns), last_hash);
     }
 
+    query_timer.reset("{}:{}"_format(__PRETTY_FUNCTION__, __LINE__));
     auto st = impl->prepared_st(
             last_id ? "SELECT hash, namespace, timestamp, expiry, data FROM messages "
                       "WHERE owner = ? AND namespace = ? AND id > ? ORDER BY id LIMIT ?"
@@ -838,6 +880,7 @@ std::pair<std::vector<message>, bool> Database::retrieve(
 std::vector<message> Database::retrieve_all() {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     std::vector<message> results;
     auto st = impl->prepared_st(
             "SELECT type, pubkey, hash, namespace, timestamp, expiry, data"
@@ -862,6 +905,7 @@ std::vector<message> Database::retrieve_all() {
 std::vector<std::pair<namespace_id, std::string>> Database::delete_all(const user_pubkey& pubkey) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto st = impl->prepared_st(
             "DELETE FROM messages"
             " WHERE owner = (SELECT id FROM owners WHERE pubkey = ? AND type = ?)"
@@ -872,6 +916,7 @@ std::vector<std::pair<namespace_id, std::string>> Database::delete_all(const use
 std::vector<std::string> Database::delete_all(const user_pubkey& pubkey, namespace_id ns) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto st = impl->prepared_st(
             "DELETE FROM messages"
             " WHERE owner = (SELECT id FROM owners WHERE pubkey = ? AND type = ?)"
@@ -901,6 +946,7 @@ std::vector<std::string> Database::delete_by_hash(
     auto impl = get_impl();
 
     if (msg_hashes.size() == 1) {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         // Use an optimized prepared statement for very common single-hash deletions
         auto st = impl->prepared_st(
                 "DELETE FROM messages"
@@ -910,6 +956,7 @@ std::vector<std::string> Database::delete_by_hash(
         return get_all<std::string>(st, pubkey, msg_hashes[0]);
     }
 
+    debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
     SQLite::Statement st{
             impl->db,
             multi_in_query(
@@ -929,6 +976,7 @@ std::vector<std::pair<namespace_id, std::string>> Database::delete_by_timestamp(
         const user_pubkey& pubkey, std::chrono::system_clock::time_point timestamp) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto st = impl->prepared_st(
             "DELETE FROM messages"
             " WHERE owner = (SELECT id FROM owners WHERE pubkey = ? AND type = ?)"
@@ -943,6 +991,7 @@ std::vector<std::string> Database::delete_by_timestamp(
         std::chrono::system_clock::time_point timestamp) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto st = impl->prepared_st(
             "DELETE FROM messages"
             " WHERE owner = (SELECT id FROM owners WHERE pubkey = ? AND type = ?)"
@@ -964,6 +1013,7 @@ void Database::revoke_subaccounts(
     auto impl = get_impl();
 
     if (subaccounts.size() == 1) {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         auto insert_token = impl->prepared_st(fmt::format(
                 "{} VALUES ((SELECT id FROM owners WHERE pubkey = ? AND type = ?), ?) {}",
                 ins_revoke_prefix,
@@ -974,6 +1024,7 @@ void Database::revoke_subaccounts(
 
     SQLite::Transaction transaction{impl->db};
 
+    debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
     auto get_owner = impl->prepared_st("SELECT id FROM owners WHERE pubkey = ? AND type = ?");
     auto ownerid = exec_and_maybe_get<int64_t>(get_owner, pubkey);
     if (!ownerid)
@@ -998,6 +1049,7 @@ int Database::unrevoke_subaccounts(
     auto impl = get_impl();
 
     if (subaccounts.size() == 1) {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         auto remove_token = impl->prepared_st(
                 "DELETE FROM revoked_subaccounts"
                 " WHERE owner = (SELECT id FROM owners WHERE pubkey = ? AND type = ?)"
@@ -1005,6 +1057,7 @@ int Database::unrevoke_subaccounts(
         return exec_query(remove_token, pubkey, blob_binder{subaccounts[0].view()});
     }
 
+    debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
     SQLite::Statement st{
             impl->db,
             multi_in_query(
@@ -1026,6 +1079,7 @@ int Database::unrevoke_subaccounts(
 bool Database::subaccount_revoked(const user_pubkey& pubkey, const subaccount_token& subaccount) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto count = exec_and_get<int64_t>(
             impl->prepared_st("SELECT COUNT(*) FROM revoked_subaccounts WHERE token = ? AND "
                               "owner = (SELECT id FROM owners WHERE pubkey = ? AND type = ?)"),
@@ -1056,6 +1110,7 @@ std::vector<std::pair<std::string, std::chrono::system_clock::time_point>> Datab
     auto impl = get_impl();
 
     if (msg_hashes.size() == 1) {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         // Pre-prepared version for the common single hash case
         if (impl->prepared_exec(
                     "UPDATE messages SET expiry = ? WHERE hash = ?"s + expiry_constraint +
@@ -1066,6 +1121,7 @@ std::vector<std::pair<std::string, std::chrono::system_clock::time_point>> Datab
             result.emplace_back(msg_hashes[0], new_exp[0]);
 
     } else if (new_exp.size() == 1) {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         SQLite::Statement st{
                 impl->db,
                 multi_in_query(
@@ -1082,6 +1138,7 @@ std::vector<std::pair<std::string, std::chrono::system_clock::time_point>> Datab
         for (auto& hash : get_all<std::string>(st))
             result.emplace_back(hash, new_exp[0]);
     } else {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         int64_t owner;
         if (auto maybe = exec_and_maybe_get<int64_t>(
                     impl->prepared_st("SELECT id FROM owners WHERE pubkey = ? AND type = ?"),
@@ -1108,6 +1165,7 @@ std::map<std::string, int64_t> Database::get_expiries(
     auto impl = get_impl();
 
     if (msg_hashes.size() == 1) {
+        debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
         // Pre-prepared version for the common single hash case
         auto st = impl->prepared_st(
                 "SELECT hash, expiry FROM messages WHERE hash = ?"
@@ -1115,6 +1173,7 @@ std::map<std::string, int64_t> Database::get_expiries(
         return get_map<std::string, int64_t>(st, msg_hashes[0], pubkey);
     }
 
+    debug_timer query_timer{"{}:{}"_format(__PRETTY_FUNCTION__, __LINE__)};
     SQLite::Statement st{
             impl->db,
             multi_in_query(
@@ -1134,6 +1193,7 @@ std::vector<std::pair<namespace_id, std::string>> Database::update_all_expiries(
         const user_pubkey& pubkey, std::chrono::system_clock::time_point new_exp) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto new_exp_ms = to_epoch_ms(new_exp);
     auto st = impl->prepared_st(
             "UPDATE messages SET expiry = ?"
@@ -1146,6 +1206,7 @@ std::vector<std::string> Database::update_all_expiries(
         const user_pubkey& pubkey, namespace_id ns, std::chrono::system_clock::time_point new_exp) {
     auto impl = get_impl();
 
+    debug_timer query_timer{__PRETTY_FUNCTION__};
     auto new_exp_ms = to_epoch_ms(new_exp);
     auto st = impl->prepared_st(
             "UPDATE messages SET expiry = ?"
