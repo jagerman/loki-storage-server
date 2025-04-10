@@ -60,9 +60,14 @@ QUIC::QUIC(
 }
 
 void QUIC::startup_endpoint() {
-    ep->listen(tls_creds, [&](quic::connection_interface& c) {
-        c.queue_incoming_stream<quic::BTRequestStream>(command_handler);
-    });
+    ep->listen(
+            tls_creds,
+            // Stream constructor: all incoming streams become BTRequestStreams, allowing clients to
+            // use multiple streams to send higher/lower priority data in parallel by juggling
+            // streams.
+            [this](quic::connection_interface& c, quic::Endpoint& e, std::optional<int64_t>) {
+                return e.make_shared<quic::BTRequestStream>(c, e, command_handler);
+            });
 }
 
 void QUIC::handle_monitor_message(std::shared_ptr<quic::message> msg) {
